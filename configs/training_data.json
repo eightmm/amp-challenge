@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "dataset_id": "dramp-oracle-v1-2026-09-03",
+  "source": "dramp-general-2026-09-03",
+  "sheet": "general_amps",
+  "output_dir": "data/processed/dramp-oracle-v1",
+  "sequence": {
+    "min": 8,
+    "max": 50,
+    "shape": "linear",
+    "alphabet": "ACDEFGHIKLMNPQRSTVWY",
+    "stereochemistry": "L",
+    "n_terminal_states": [
+      "free",
+      "acetylated"
+    ],
+    "c_terminal_states": [
+      "free",
+      "amidated"
+    ],
+    "other_modifications": "exclude"
+  },
+  "measurements": {
+    "mic_endpoint": "MIC",
+    "hemolysis_endpoint": "HC50",
+    "max_concentration_um": 1000000,
+    "taxonomy_confidence": [
+      "high",
+      "medium"
+    ],
+    "preserve_censoring": true,
+    "preserve_intervals": true,
+    "bacterial_mic_only": true
+  },
+  "clustering": {
+    "method": "global_edit_single_linkage",
+    "identity_threshold": 0.7,
+    "min_coverage": 0.8
+  },
+  "splits": {
+    "folds": 5,
+    "seed": 42,
+    "holdout_folds": {
+      "test": 0,
+      "calibration": 1
+    }
+  }
+}

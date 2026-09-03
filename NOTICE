@@ -1,6 +1,20 @@
 The AMP Challenge 2027 submission contract and reference validator are defined
 by szczurek-lab/amp-challenge-2027, distributed under BSD-3-Clause.
 
+DRAMP data downloaded from https://dramp.cpu-bioinfor.org/ on 2026-09-03 are
+used under Creative Commons Attribution 4.0. The patent peptide dataset is not
+included. Source file hashes and retrieval URLs are recorded in
+configs/data_sources.json.
+
+The APEX pathogen inference repository and pretrained weights are referenced at
+commit 417a4441a1e6ef8b10d2352e1c059622d5259f3a under its MIT license. They are
+not redistributed by this repository, and APEX training observations are not
+represented as part of the DRAMP-derived dataset.
+
+The planned frozen representation is facebook/esm2_t12_35M_UR50D, pinned at
+revision 6fbf070e65b0b7291e7bbcd451118c216cff79d8 under its MIT license. No model
+weights are redistributed and no model training has been performed here.
+
 This project does not claim that its bootstrap heuristic generator is a
 competitive biological model. It exists to exercise the complete, deterministic
 submission path while learned generators and calibrated oracles are developed.

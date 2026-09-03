@@ -7,7 +7,7 @@
 - [x] Implement deterministic FASTA generation and selection.
 - [x] Add local validation, manifests, freeze IDs, and a guarded submit adapter.
 - [x] Add smoke tests and CI.
-- [ ] Run the official 50,000-sequence validator on a GPU/cluster checkout.
+- [x] Run the official 50,000-sequence validator twice with identical output.
 
 ## Next: baseline artifacts
 
@@ -19,11 +19,15 @@
 
 ## Data/oracle workstream
 
-- [ ] Resolve license and immutable release for APEX data/weights.
-- [ ] Resolve DBAASP/DRAMP/GRAMPA access and redistribution decisions.
-- [ ] Build normalized MIC and hemolysis tables.
-- [ ] Audit units, censored labels, organism/strain mappings, and conflicts.
-- [ ] Create 40%-identity cluster folds with source and temporal holdouts.
+- [x] Pin the APEX MIT code/weight commit; training observations remain absent.
+- [x] Enable pinned DRAMP bulk files under CC BY 4.0.
+- [x] Keep DBAASP and GRAMPA fail-closed pending acceptable usage terms.
+- [x] Build normalized, interval-aware MIC and HC50 tables.
+- [x] Audit units, censored labels, termini, taxonomy, and parser failures.
+- [x] Create deterministic 70%-threshold single-linkage global-edit folds and
+      verify zero cross-fold threshold violations.
+- [x] Pin the frozen ESM2-35M revision and pass the training preflight.
+- [ ] Add source/temporal holdouts and pinned MMseqs2 cluster evidence.
 - [ ] Train frozen-PLM small heads and non-neural baselines.
 - [ ] Calibrate fold ensembles and benchmark Top-K enrichment.
 

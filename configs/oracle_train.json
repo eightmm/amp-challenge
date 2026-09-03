@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "dataset_id": "dramp-oracle-v1-2026-09-03",
+  "seed": 42,
+  "backbone": {
+    "provider": "huggingface",
+    "name": "facebook/esm2_t12_35M_UR50D",
+    "revision": "6fbf070e65b0b7291e7bbcd451118c216cff79d8",
+    "license": "MIT",
+    "frozen": true,
+    "pooling": "masked_mean"
+  },
+  "heads": {
+    "mic": {
+      "target": "interval_censored_log2_um",
+      "organism_embedding_dim": 32,
+      "hidden_dim": 256,
+      "layers": 2,
+      "dropout": 0.1,
+      "ordinal_thresholds_um": [4, 16, 64]
+    },
+    "hc50": {
+      "target": "interval_censored_log2_um",
+      "hidden_dim": 256,
+      "layers": 2,
+      "dropout": 0.1,
+      "safety_thresholds_um": [64, 128]
+    }
+  },
+  "terminal_covariates": [
+    "n_terminal",
+    "c_terminal"
+  ],
+  "optimization": {
+    "optimizer": "adamw",
+    "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "batch_size": 64,
+    "max_epochs": 80,
+    "early_stopping_patience": 10,
+    "gradient_clip_norm": 1.0
+  },
+  "evaluation": {
+    "folds": 5,
+    "test_fold": 0,
+    "calibration_fold": 1,
+    "primary_metric": "top_k_enrichment_mic_le_16um"
+  },
+  "minimum_rows": {
+    "mic": 1000,
+    "hc50": 50
+  },
+  "execution_guard": {
+    "require_preflight": true,
+    "require_execute_flag": true,
+    "training_was_run": false
+  }
+}

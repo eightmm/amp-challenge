@@ -1,6 +1,6 @@
 # AMP Challenge Pipeline Specification
 
-Status: **v0.1 implementation baseline**
+Status: **v0.2 training-data handoff**
 
 Last updated: 2026-09-03
 
@@ -172,7 +172,7 @@ command can submit implicitly.
 
 ## 7. Delivery phases
 
-### Phase 0 — submission skeleton (this commit)
+### Phase 0 — submission skeleton (complete)
 
 - official-sized deterministic generation contract;
 - challenge reference registry and checksum;
@@ -192,11 +192,25 @@ the default command can produce the official output shape.
 
 Acceptance: independent reruns have identical FASTA bytes on the pinned runtime.
 
-### Phase 2 — data and oracle benchmark
+### Phase 2a — training-data handoff (complete for DRAMP v1)
 
-- normalized MIC and hemolysis tables;
-- duplicate/conflict audit;
-- MMseqs2 identity clusters and source holdouts;
+- pinned, checksum-verified DRAMP general workbook;
+- interval-aware bacterial MIC and HC50 parsing with unit normalization;
+- explicit terminus state and quarantine audit;
+- deterministic 70%-threshold single-linkage global-edit clusters and balanced
+  five-fold roles;
+- content-addressed artifacts and a fail-closed training preflight;
+- frozen ESM2-35M revision and small-head training configuration.
+
+Acceptance: `uv run amp train preflight` reports `ready: true`, every artifact
+matches its manifest, and no cluster crosses fold boundaries. This phase does not
+claim that training ran or that the current global-edit clustering is equivalent
+to MMseqs2 local alignment.
+
+### Phase 2b — oracle benchmark (next)
+
+- add independently licensed sources and source/temporal holdouts;
+- replace or corroborate the v1 clustering with pinned MMseqs2 runs;
 - APEX plus at least two independent learned oracle families;
 - calibration and OOD report.
 

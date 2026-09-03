@@ -20,6 +20,14 @@ human/animal exposure.
 None. The generator samples from explicitly coded amino-acid priors and helical
 position biases. The oracle is an explicit physicochemical heuristic.
 
+## Prepared successor (not trained)
+
+`configs/oracle_train.json` defines a frozen ESM2-35M representation with small
+interval-censored MIC and HC50 heads. Its input handoff is reproducibly built
+from the pinned DRAMP workbook and passes `amp train preflight`, but no optimizer
+step or learned checkpoint exists. These facts must not be presented as model
+performance.
+
 ## Validation
 
 Software invariants only: deterministic outputs, sequence legality, uniqueness,

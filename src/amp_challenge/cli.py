@@ -19,6 +19,8 @@ from .freeze import freeze_run
 from .kaggle import run_read_command
 from .pipeline import run_pipeline
 from .submission import submit_kaggle
+from .training_data import prepare_training_data
+from .training_preflight import training_preflight
 from .utils import find_project_root, sha256_file
 from .validation import validate_submission
 
@@ -162,6 +164,12 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_parser = data_subparsers.add_parser("fetch", help="Fetch one approved source")
     fetch_parser.add_argument("source")
     fetch_parser.add_argument("--force", action="store_true")
+    prepare_parser = data_subparsers.add_parser(
+        "prepare", help="Build normalized, clustered oracle training tables"
+    )
+    prepare_parser.add_argument("--config", default="configs/training_data.json")
+    prepare_parser.add_argument("--raw", type=Path)
+    prepare_parser.add_argument("--output-dir", type=Path)
 
     kaggle_parser = subparsers.add_parser(
         "kaggle", help="Use the official Kaggle CLI for competition reads/downloads"
@@ -173,6 +181,17 @@ def build_parser() -> argparse.ArgumentParser:
     download_parser = kaggle_subparsers.add_parser("download")
     download_parser.add_argument("--competition", default="amp-challenge")
     download_parser.add_argument("--destination", type=Path, default=Path("data/competition"))
+
+    train_parser = subparsers.add_parser("train", help="Validate the handoff to model training")
+    train_subparsers = train_parser.add_subparsers(dest="train_command", required=True)
+    preflight_parser = train_subparsers.add_parser(
+        "preflight", help="Verify data, splits, hashes, and pinned model config without training"
+    )
+    preflight_parser.add_argument(
+        "--dataset-dir", type=Path, default=Path("data/processed/dramp-oracle-v1")
+    )
+    preflight_parser.add_argument("--config", default="configs/oracle_train.json")
+    preflight_parser.add_argument("--report", type=Path)
 
     subparsers.add_parser("doctor", help="Check the local runtime")
     return parser
@@ -234,6 +253,32 @@ def main() -> None:
             )
             print(json.dumps({"status": "ready", "path": str(path)}, indent=2))
             code = 0
+        elif args.command == "data" and args.data_command == "prepare":
+            output_dir = (
+                _project_path(root, args.output_dir) if args.output_dir is not None else None
+            )
+            raw_path = _project_path(root, args.raw) if args.raw is not None else None
+            manifest = prepare_training_data(
+                project_root=root,
+                config_path=_project_path(root, args.config),
+                registry_path=registry,
+                output_dir=output_dir,
+                raw_path=raw_path,
+            )
+            print(
+                json.dumps(
+                    {
+                        "status": "prepared",
+                        "dataset_id": manifest["dataset_id"],
+                        "counts": manifest["counts"],
+                        "clustering": manifest["clustering"],
+                        "fold_counts": manifest["splits"]["fold_counts"],
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            code = 0
         elif args.command == "kaggle":
             print(
                 run_read_command(
@@ -245,6 +290,20 @@ def main() -> None:
             code = 0
         elif args.command == "doctor":
             code = _run_doctor()
+        elif args.command == "train" and args.train_command == "preflight":
+            dataset_dir = _project_path(root, args.dataset_dir)
+            report_path = (
+                _project_path(root, args.report)
+                if args.report is not None
+                else dataset_dir / "preflight.json"
+            )
+            report = training_preflight(
+                dataset_dir=dataset_dir,
+                train_config_path=_project_path(root, args.config),
+                report_path=report_path,
+            )
+            print(json.dumps(report, indent=2, sort_keys=True))
+            code = 0 if report["ready"] else 1
         else:
             parser.error("unsupported command")
     except (FileNotFoundError, KeyError, PermissionError, RuntimeError, ValueError) as error:

@@ -5,10 +5,11 @@ submitting antimicrobial peptides. The first target is the broad-spectrum track;
 the modeling priority is a calibrated **MIC + hemolysis oracle ensemble** and a
 robust Top-100 selector, with the generator kept replaceable.
 
-> Current status: the repository contains a complete deterministic submission
-> path and a deliberately simple physicochemical smoke baseline. It is not yet a
-> competitive biological model. AMP-Diffusion/HydrAMP candidate import and
-> learned oracles are the next milestones.
+> Current status: **training handoff ready**. The repository can fetch the pinned
+> DRAMP workbook, build interval-aware MIC/HC50 tables, assign deterministic
+> sequence-family folds, and pass a checksum-based training preflight. No neural
+> model optimization has been run, and the default submission model remains the
+> deliberately simple physicochemical smoke baseline.
 
 ## Why this shape
 
@@ -40,6 +41,11 @@ uv sync --locked
 uv run amp doctor
 uv run amp data status
 
+# Rebuild the oracle-training handoff from the pinned raw workbook.
+uv run amp data fetch dramp-general-2026-09-03
+uv run amp data prepare
+uv run amp train preflight
+
 # Fast end-to-end smoke test
 uv run generate_broad_spectrum --n-sequences 500 --top-k 20
 uv run amp validate \
@@ -51,6 +57,14 @@ uv run amp validate \
 uv run generate_broad_spectrum
 uv run amp validate --run-dir generate_broad_spectrum
 ```
+
+The data commands do not train a model. On the pinned 2026-09-03 DRAMP snapshot,
+they produce 5,012 bacterial MIC measurements and 130 HC50 measurements over 929
+unique eligible peptide sequences. Raw and derived data remain Git-ignored; their
+checksums, parser policy, row funnel, cluster assignments, and fold balance are
+recorded in the generated manifest. See
+[`docs/TRAINING_HANDOFF.md`](docs/TRAINING_HANDOFF.md) for the exact boundary and
+known limitations.
 
 The default command writes:
 
@@ -122,9 +136,9 @@ has been completed for the connected account.
 ```text
 configs/                 versioned run and source registries
 data/                    challenge reference + provenance notes
-docs/                    frozen spec, data/oracle contracts, roadmap
+docs/                    contracts, training handoff, and roadmap
 schema/                  machine-readable normalized table schemas
-src/amp_challenge/       generation, scoring, selection, validation, gates
+src/amp_challenge/       curation, splits, generation, selection, and gates
 tests/                   deterministic unit and integration tests
 ```
 
@@ -136,6 +150,8 @@ tests/                   deterministic unit and integration tests
 - Full library has no exact challenge-reference overlap.
 - Top-100 is a library subset and has no reference similarity above 0.80.
 - Random sequence-cluster split is forbidden for oracle evaluation.
+- Censored/range measurements remain intervals; they are never midpoint-imputed.
+- Dataset and backbone revisions must be immutable and preflight-verified.
 - Missing oracle predictions are penalized, never silently imputed as success.
 - A frozen run cannot be submitted after any covered file hash changes.
 - No network write occurs without the explicit submit command and run ID.

@@ -9,11 +9,11 @@
       "access": "automatic",
       "license_review": "challenge-provided"
     },
-    "apex-1.1": {
-      "description": "Strain-specific MIC data/model release; pin an exact release before ingestion",
+    "apex-ensemble": {
+      "description": "APEX pathogen 8-model inference ensemble; repository is MIT, training data are not released here",
       "homepage": "https://gitlab.com/machine-biology-group-public/apex-pathogen",
       "access": "manual-review",
-      "license_review": "required"
+      "license_review": "weights/code MIT at commit 417a4441a1e6ef8b10d2352e1c059622d5259f3a; model adapter still required"
     },
     "dbaasp": {
       "description": "AMP activity and toxicity measurements",
@@ -21,17 +21,35 @@
       "access": "manual-review",
       "license_review": "required"
     },
-    "dramp": {
-      "description": "Curated antimicrobial peptide records",
-      "homepage": "http://dramp.cpu-bioinfor.org/",
-      "access": "manual-review",
-      "license_review": "required"
+    "dramp-general-2026-09-03": {
+      "description": "DRAMP general AMP workbook with target-organism MIC and hemolysis annotations",
+      "homepage": "https://dramp.cpu-bioinfor.org/",
+      "url": "https://dramp.cpu-bioinfor.org/downloads/download.php?filename=download_data/DRAMP3.0_new/general_amps.xlsx",
+      "destination": "data/raw/dramp/2026-09-03/general_amps.xlsx",
+      "sha256": "1f376e89596a01e0a186258ada2d2c29bcde2e520abfe2969a618b824958f25e",
+      "access": "automatic",
+      "retrieved_at": "2026-09-03",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "license_review": "DRAMP site explicitly permits access, use, extraction, and bulk download under CC BY 4.0; patent dataset is excluded"
+    },
+    "dramp-antibacterial-2026-09-03": {
+      "description": "DRAMP antibacterial sequence workbook for auxiliary positive-label work",
+      "homepage": "https://dramp.cpu-bioinfor.org/",
+      "url": "https://dramp.cpu-bioinfor.org/downloads/download.php?filename=download_data/DRAMP3.0_new/Antibacterial_amps.xlsx",
+      "destination": "data/raw/dramp/2026-09-03/Antibacterial_amps.xlsx",
+      "sha256": "2b6c79485618439877e06bcaedc79fe4c647fd3be36129cc1cef91a70d0421f5",
+      "access": "automatic",
+      "retrieved_at": "2026-09-03",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "license_review": "DRAMP site explicitly permits access, use, extraction, and bulk download under CC BY 4.0; patent dataset is excluded"
     },
     "grampa": {
       "description": "Aggregated peptide MIC measurements",
       "homepage": "https://github.com/zswitten/Antimicrobial-Peptides",
       "access": "manual-review",
-      "license_review": "required"
+      "license_review": "no explicit repository license found; do not ingest automatically"
     }
   }
 }
