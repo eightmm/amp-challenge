@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eightmm/amp-challenge/schema/hemolysis_measurement.schema.json",
+  "title": "Normalized AMP hemolysis measurement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sequence",
+    "endpoint",
+    "relation",
+    "value_original",
+    "unit_original",
+    "source_name",
+    "source_record_id"
+  ],
+  "properties": {
+    "sequence": { "type": "string", "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$" },
+    "cell_source": { "type": ["string", "null"] },
+    "endpoint": { "enum": ["HC10", "HC50", "percent_at_concentration"] },
+    "relation": { "enum": ["eq", "lt", "le", "gt", "ge"] },
+    "value_original": { "type": "number", "minimum": 0 },
+    "unit_original": { "type": "string", "minLength": 1 },
+    "concentration_um": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "exposure_hours": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "buffer": { "type": ["string", "null"] },
+    "source_name": { "type": "string", "minLength": 1 },
+    "source_record_id": { "type": "string", "minLength": 1 },
+    "source_url": { "type": ["string", "null"], "format": "uri" },
+    "publication_doi": { "type": ["string", "null"] }
+  }
+}

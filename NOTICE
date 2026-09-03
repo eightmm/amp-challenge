@@ -1,0 +1,6 @@
+The AMP Challenge 2027 submission contract and reference validator are defined
+by szczurek-lab/amp-challenge-2027, distributed under BSD-3-Clause.
+
+This project does not claim that its bootstrap heuristic generator is a
+competitive biological model. It exists to exercise the complete, deterministic
+submission path while learned generators and calibrated oracles are developed.

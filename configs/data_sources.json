@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "challenge-reference": {
+      "description": "Official known-antibacterial reference used by the challenge validator",
+      "url": "https://raw.githubusercontent.com/szczurek-lab/amp-challenge-2027/main/data/antibacterial.fasta",
+      "destination": "data/antibacterial.fasta",
+      "sha256": "cbbeac64ba95746d87961e8ad9dd0849ae8058d15a300b2e7f6990730ca521e9",
+      "access": "automatic",
+      "license_review": "challenge-provided"
+    },
+    "apex-1.1": {
+      "description": "Strain-specific MIC data/model release; pin an exact release before ingestion",
+      "homepage": "https://gitlab.com/machine-biology-group-public/apex-pathogen",
+      "access": "manual-review",
+      "license_review": "required"
+    },
+    "dbaasp": {
+      "description": "AMP activity and toxicity measurements",
+      "homepage": "https://dbaasp.org/",
+      "access": "manual-review",
+      "license_review": "required"
+    },
+    "dramp": {
+      "description": "Curated antimicrobial peptide records",
+      "homepage": "http://dramp.cpu-bioinfor.org/",
+      "access": "manual-review",
+      "license_review": "required"
+    },
+    "grampa": {
+      "description": "Aggregated peptide MIC measurements",
+      "homepage": "https://github.com/zswitten/Antimicrobial-Peptides",
+      "access": "manual-review",
+      "license_review": "required"
+    }
+  }
+}

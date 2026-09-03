@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "track": "broad_spectrum",
+  "generator": {
+    "name": "heuristic-v0",
+    "min_length": 12,
+    "max_length": 32
+  },
+  "oracle": {
+    "name": "physchem-v0",
+    "activity_weight": 1.0,
+    "toxicity_weight": 0.65,
+    "uncertainty_weight": 0.25
+  },
+  "selector": {
+    "challenge_novelty_threshold": 0.8,
+    "pairwise_diversity_threshold": 0.55,
+    "candidate_scan_limit": 10000
+  },
+  "output": {
+    "library_size": 50000,
+    "top_k": 100,
+    "seed": 42
+  }
+}

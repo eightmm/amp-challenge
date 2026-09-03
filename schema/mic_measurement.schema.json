@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/eightmm/amp-challenge/schema/mic_measurement.schema.json",
+  "title": "Normalized AMP MIC measurement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sequence",
+    "organism_name",
+    "relation",
+    "value_original",
+    "unit_original",
+    "value_um",
+    "log2_um",
+    "source_name",
+    "source_record_id"
+  ],
+  "properties": {
+    "sequence": { "type": "string", "pattern": "^[ACDEFGHIKLMNPQRSTVWY]+$" },
+    "organism_name": { "type": "string", "minLength": 1 },
+    "strain_name": { "type": ["string", "null"] },
+    "taxon_id": { "type": ["integer", "null"], "minimum": 1 },
+    "gram": { "enum": ["positive", "negative", "unknown"] },
+    "resistance_profile": { "type": ["string", "null"] },
+    "relation": { "enum": ["eq", "lt", "le", "gt", "ge"] },
+    "value_original": { "type": "number", "exclusiveMinimum": 0 },
+    "unit_original": { "type": "string", "minLength": 1 },
+    "value_um": { "type": "number", "exclusiveMinimum": 0 },
+    "log2_um": { "type": "number" },
+    "assay_method": { "type": ["string", "null"] },
+    "assay_medium": { "type": ["string", "null"] },
+    "assay_temperature_c": { "type": ["number", "null"] },
+    "assay_ph": { "type": ["number", "null"] },
+    "incubation_hours": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "source_name": { "type": "string", "minLength": 1 },
+    "source_record_id": { "type": "string", "minLength": 1 },
+    "source_url": { "type": ["string", "null"], "format": "uri" },
+    "publication_doi": { "type": ["string", "null"] }
+  }
+}

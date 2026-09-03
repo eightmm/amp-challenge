@@ -1,0 +1,36 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Runtime products. Final frozen artifacts are attached to a release, not committed.
+generate/
+generate_*/
+runs/
+submission/
+
+# Curated data and the challenge reference are tracked; downloaded raw data is not.
+data/raw/
+data/interim/
+data/processed/
+
+# Credentials and local overrides.
+.env
+.env.*
+!.env.example
+kaggle.json
+configs/local*.json
+
+# Model binaries use Git LFS when deliberately added.
+checkpoints/*.bin
+checkpoints/*.ckpt
+checkpoints/*.safetensors
+checkpoints/*.pt
+!checkpoints/README.md
