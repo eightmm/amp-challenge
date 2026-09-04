@@ -5,7 +5,13 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .utils import atomic_write_json, canonical_json_bytes, sha256_bytes, sha256_file
+from .utils import (
+    atomic_write_json,
+    canonical_json_bytes,
+    find_project_root,
+    sha256_bytes,
+    sha256_file,
+)
 from .validation import ValidationReport, validate_submission
 
 FROZEN_FILES = ("library.fasta", "top.fasta", "scores.csv", "manifest.json")
@@ -29,6 +35,47 @@ def verify_manifest_hashes(run_dir: Path) -> None:
             raise ValueError(f"manifest hash mismatch for {name}: {actual} != {expected}")
 
 
+def verify_manifest_inputs(run_dir: Path) -> list[dict[str, str]]:
+    """Verify every release dependency pinned by the run manifest."""
+    manifest_path = run_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    inputs = manifest.get("inputs")
+    if not isinstance(inputs, list) or not inputs:
+        raise ValueError(f"{manifest_path}: missing non-empty inputs list")
+
+    verified: list[dict[str, str]] = []
+    project_root = find_project_root()
+    if not (project_root / "pyproject.toml").is_file():
+        project_root = find_project_root(run_dir)
+    for index, item in enumerate(inputs):
+        if not isinstance(item, dict):
+            raise ValueError(f"{manifest_path}: inputs[{index}] must be an object")
+        role = item.get("role")
+        path_value = item.get("path")
+        expected = item.get("sha256")
+        if not isinstance(role, str) or not role:
+            raise ValueError(f"{manifest_path}: inputs[{index}].role must be non-empty")
+        if not isinstance(path_value, str) or not path_value:
+            raise ValueError(f"{manifest_path}: inputs[{index}].path must be non-empty")
+        if (
+            not isinstance(expected, str)
+            or len(expected) != 64
+            or any(character not in "0123456789abcdef" for character in expected)
+        ):
+            raise ValueError(f"{manifest_path}: inputs[{index}].sha256 is invalid")
+        path = Path(path_value)
+        resolved_path = path if path.is_absolute() else project_root / path
+        if not resolved_path.is_file():
+            raise FileNotFoundError(f"manifest input missing: {resolved_path}")
+        actual = sha256_file(resolved_path)
+        if actual != expected:
+            raise ValueError(
+                f"manifest input hash mismatch for {resolved_path}: {actual} != {expected}"
+            )
+        verified.append({"role": role, "path": path_value, "sha256": actual})
+    return verified
+
+
 def freeze_run(
     *,
     run_dir: Path,
@@ -46,14 +93,19 @@ def freeze_run(
     )
     report.raise_for_errors()
     verify_manifest_hashes(run_dir)
+    inputs = verify_manifest_inputs(run_dir)
     covered = _covered_hashes(run_dir)
-    identity_payload = {"schema_version": 1, "files": covered}
+    identity_payload = {"schema_version": 1, "files": covered, "inputs": inputs}
     run_id = sha256_bytes(canonical_json_bytes(identity_payload))[:16]
     freeze_path = run_dir / "freeze.json"
 
     if freeze_path.exists():
         existing = json.loads(freeze_path.read_text(encoding="utf-8"))
-        if existing.get("run_id") != run_id or existing.get("files") != covered:
+        if (
+            existing.get("run_id") != run_id
+            or existing.get("files") != covered
+            or existing.get("inputs") != inputs
+        ):
             raise ValueError(
                 f"{freeze_path} describes a different run; generate into a new directory"
             )
@@ -101,4 +153,7 @@ def verify_frozen_run(run_dir: Path, expected_run_id: str) -> dict:
     if actual != record.get("files"):
         raise ValueError("frozen run has changed; covered file hashes no longer match")
     verify_manifest_hashes(run_dir)
+    inputs = verify_manifest_inputs(run_dir)
+    if inputs != record.get("inputs"):
+        raise ValueError("frozen run inputs have changed; dependency hashes no longer match")
     return record

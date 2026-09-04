@@ -5,11 +5,14 @@ submitting antimicrobial peptides. The first target is the broad-spectrum track;
 the modeling priority is a calibrated **MIC + hemolysis oracle ensemble** and a
 robust Top-100 selector, with the generator kept replaceable.
 
-> Current status: **training handoff ready**. The repository can fetch the pinned
-> DRAMP workbook, build interval-aware MIC/HC50 tables, assign deterministic
-> sequence-family folds, and pass a checksum-based training preflight. No neural
-> model optimization has been run, and the default submission model remains the
-> deliberately simple physicochemical smoke baseline.
+> Current status: **first trained baseline ready**. The repository builds the
+> pinned DRAMP handoff, trains a dependency-free activity/safety checkpoint, and
+> produces the official 50,000 + Top-100 shape. The learned activity head is
+> disabled after review of weak cluster-split development diagnostics; because
+> Fold 0 informed that release decision, its metrics are not an untouched,
+> unbiased final test. The small HC50 safety head is used only as a conservative
+> blend with the transparent physicochemical baseline. No formal comparison
+> against APEX, HydrAMP, or a declared physchem promotion baseline has been run.
 
 ## Why this shape
 
@@ -46,6 +49,10 @@ uv run amp data fetch dramp-general-2026-09-03
 uv run amp data prepare
 uv run amp train preflight
 
+# Training is a dry run unless --execute is explicit.
+uv run amp train linear
+uv run amp train linear --execute
+
 # Fast end-to-end smoke test
 uv run generate_broad_spectrum --n-sequences 500 --top-k 20
 uv run amp validate \
@@ -58,7 +65,9 @@ uv run generate_broad_spectrum
 uv run amp validate --run-dir generate_broad_spectrum
 ```
 
-The data commands do not train a model. On the pinned 2026-09-03 DRAMP snapshot,
+The data commands do not train a model. `amp train linear --execute` is the only
+baseline optimization command and writes the content-addressed JSON checkpoint.
+On the pinned 2026-09-03 DRAMP snapshot,
 they produce 5,012 bacterial MIC measurements and 130 HC50 measurements over 929
 unique eligible peptide sequences. Raw and derived data remain Git-ignored; their
 checksums, parser policy, row funnel, cluster assignments, and fold balance are
@@ -101,8 +110,10 @@ content-addressed artifact:
 uv run amp freeze --run-dir generate_broad_spectrum
 ```
 
-Submission is dry-run unless `--execute` is present, and even then requires the
-exact frozen run ID:
+The generic CLI transport remains dry-run unless `--execute` is present and also
+requires the exact frozen run ID. The active AMP Challenge is a Kaggle Community
+Hackathon whose documented entry path is a web Writeup, not a prediction-file
+upload, so this transport is not used for the competition entry:
 
 ```bash
 uv run amp submit \
@@ -113,10 +124,10 @@ uv run amp submit \
   --execute
 ```
 
-Before API submission, accept the competition rules in the Kaggle web UI once
-and configure the official Kaggle CLI. The artifact format must be matched to the
-competition's active Kaggle submission page before enabling `--execute`; this
-repository does not infer or auto-submit an undocumented payload.
+Join the hackathon in the Kaggle web UI and submit the method, repository, and
+FASTA outputs through `Writeups -> New Writeup`. A private repository must grant
+read access to `RasmusML` and `szymczakpau`. This repository never infers or
+auto-submits an undocumented payload.
 
 Competition data and current submissions can be accessed through the same CLI
 without putting credentials in the repository:

@@ -10,7 +10,13 @@ from . import __version__
 from .constants import MAX_LENGTH, MIN_LENGTH, STANDARD_AMINO_ACIDS
 from .fasta import read_sequences, write_fasta
 from .generator import generate_heuristic, load_candidates, take_candidates
-from .scoring import CSVOracle, EnsembleScorer, PhyschemOracle, WeightedOracle
+from .scoring import (
+    CSVOracle,
+    EnsembleScorer,
+    LearnedLinearOracle,
+    PhyschemOracle,
+    WeightedOracle,
+)
 from .selector import SelectionResult, select_top
 from .similarity import ReferenceIndex
 from .utils import atomic_write_json, atomic_write_text, git_commit, sha256_file
@@ -35,6 +41,30 @@ def load_config(path: Path) -> dict:
 
 def _eligible_sequence(sequence: str) -> bool:
     return MIN_LENGTH <= len(sequence) <= MAX_LENGTH and not (set(sequence) - STANDARD_AMINO_ACIDS)
+
+
+def _config_bool(config: dict, key: str, *, default: bool) -> bool:
+    value = config.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"oracle.learned_checkpoint.{key} must be a boolean")
+    return value
+
+
+def _recorded_path(path: Path, *, project_root: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def _input_record(role: str, path: Path, *, project_root: Path) -> dict[str, str]:
+    resolved = path.resolve()
+    return {
+        "role": role,
+        "path": _recorded_path(resolved, project_root=project_root),
+        "sha256": sha256_file(resolved),
+    }
 
 
 def _write_scores(
@@ -96,16 +126,64 @@ def run_pipeline(
             if _eligible_sequence(sequence)
         )
         sequences = take_candidates(candidates, n_sequences)
+        candidate_path = candidate_fasta.resolve()
         candidate_source = {
             "kind": "fasta",
-            "path": str(candidate_fasta),
-            "sha256": sha256_file(candidate_fasta),
+            "path": _recorded_path(candidate_path, project_root=project_root),
+            "sha256": sha256_file(candidate_path),
         }
 
     oracle_config = config["oracle"]
-    members = [WeightedOracle(PhyschemOracle())]
+    members = [
+        WeightedOracle(
+            PhyschemOracle(),
+            weight=float(oracle_config.get("physchem_weight", 1.0)),
+        )
+    ]
+    learned_checkpoint_record: dict[str, str] | None = None
+    learned_config = oracle_config.get("learned_checkpoint")
+    if learned_config is not None:
+        if not isinstance(learned_config, dict):
+            raise ValueError("oracle.learned_checkpoint must be an object or null")
+        try:
+            learned_path_value = learned_config["path"]
+            learned_sha256 = learned_config["sha256"]
+        except KeyError as error:
+            raise ValueError(
+                f"oracle.learned_checkpoint is missing required key: {error.args[0]}"
+            ) from error
+        learned_path = Path(str(learned_path_value))
+        if not learned_path.is_absolute():
+            learned_path = project_root / learned_path
+        use_activity = _config_bool(learned_config, "use_activity", default=True)
+        use_toxicity = _config_bool(learned_config, "use_toxicity", default=True)
+        learned_oracle = LearnedLinearOracle(
+            learned_path,
+            expected_sha256=str(learned_sha256),
+            use_activity=use_activity,
+            use_toxicity=use_toxicity,
+        )
+        members.append(
+            WeightedOracle(
+                learned_oracle,
+                weight=float(learned_config.get("weight", 1.0)),
+                use_activity=use_activity,
+                use_toxicity=use_toxicity,
+            )
+        )
+        learned_checkpoint_record = {
+            **_input_record("learned_checkpoint", learned_path, project_root=project_root),
+            "source": learned_oracle.name,
+            "use_activity": use_activity,
+            "use_toxicity": use_toxicity,
+        }
+
+    external_oracles: list[CSVOracle] = []
     for score_path in external_score_paths or []:
-        members.append(WeightedOracle(CSVOracle(score_path)))
+        external_oracle = CSVOracle(score_path.resolve())
+        external_oracle.require_coverage(sequences)
+        external_oracles.append(external_oracle)
+        members.append(WeightedOracle(external_oracle))
     scorer = EnsembleScorer(
         members,
         activity_weight=float(oracle_config["activity_weight"]),
@@ -134,6 +212,27 @@ def run_pipeline(
     write_fasta((item.score.sequence for item in selection.selected), top_path, prefix="rank")
     _write_scores(scores_path, scores, selection)
 
+    input_records = [
+        _input_record("config", config_path, project_root=project_root),
+        _input_record("reference", reference_path, project_root=project_root),
+    ]
+    if candidate_fasta is not None:
+        input_records.append(
+            _input_record("candidate_fasta", candidate_fasta, project_root=project_root)
+        )
+    if learned_checkpoint_record is not None:
+        input_records.append(
+            {
+                key: value
+                for key, value in learned_checkpoint_record.items()
+                if key in {"role", "path", "sha256"}
+            }
+        )
+    input_records.extend(
+        _input_record("external_scores", oracle.path, project_root=project_root)
+        for oracle in external_oracles
+    )
+
     manifest = {
         "schema_version": 1,
         "pipeline_version": __version__,
@@ -144,15 +243,18 @@ def run_pipeline(
         "top_size": len(selection.selected),
         "generator": candidate_source,
         "oracle": scorer.name,
+        "oracle_sources": list(scorer.sources),
+        "learned_checkpoint": learned_checkpoint_record,
         "config": {
-            "path": str(config_path),
+            "path": _recorded_path(config_path, project_root=project_root),
             "sha256": sha256_file(config_path),
         },
         "reference": {
-            "path": str(reference_path),
+            "path": _recorded_path(reference_path, project_root=project_root),
             "sha256": sha256_file(reference_path),
             "sequence_count": len(references.exact),
         },
+        "inputs": input_records,
         "selection": {
             "scanned": selection.scanned,
             "rejection_counts": selection.rejection_counts,
@@ -160,8 +262,11 @@ def run_pipeline(
             "pairwise_diversity_threshold": selector_config["pairwise_diversity_threshold"],
         },
         "external_scores": [
-            {"path": str(path), "sha256": sha256_file(path)}
-            for path in (external_score_paths or [])
+            {
+                "path": _recorded_path(oracle.path, project_root=project_root),
+                "sha256": sha256_file(oracle.path),
+            }
+            for oracle in external_oracles
         ],
         "outputs": {
             "library.fasta": sha256_file(library_path),

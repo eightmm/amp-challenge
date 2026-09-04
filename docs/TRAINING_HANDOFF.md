@@ -1,6 +1,6 @@
 # Training handoff
 
-Status: **ready for implementation/execution of model training; training not run**
+Status: **handoff verified; dependency-free baseline executed**
 
 Snapshot date: 2026-09-03
 
@@ -30,8 +30,8 @@ records hashes for every generated artifact and the full row funnel.
 | Sequence clusters | 417 |
 | Largest cluster | 40 |
 | Folds | 5 |
-| MIC train / calibration / test | 2,972 / 1,053 / 987 |
-| HC50 train / calibration / test | 80 / 25 / 25 |
+| MIC train / calibration / diagnostic | 2,972 / 1,053 / 987 |
+| HC50 train / calibration / diagnostic | 80 / 25 / 25 |
 | Free/free-terminus MIC rows | 1,634 |
 | Free/free-terminus HC50 rows | 62 |
 
@@ -49,13 +49,31 @@ The five-fold measurement counts are:
 
 | Fold | MIC | HC50 | Sequences | Role |
 |---:|---:|---:|---:|---|
-| 0 | 987 | 25 | 198 | test |
+| 0 | 987 | 25 | 198 | development diagnostic (artifact label: `test`); used in release-head review |
 | 1 | 1,053 | 25 | 186 | calibration |
 | 2 | 1,006 | 25 | 194 | train |
 | 3 | 863 | 32 | 163 | train |
 | 4 | 1,103 | 23 | 188 | train |
 
-## Model configuration
+## Executed baseline and planned neural successor
+
+The first executable baseline is trained with:
+
+```bash
+uv run amp train linear --execute
+```
+
+It fits deterministic logistic-ridge ensembles on the fixed cluster folds and
+writes `checkpoints/linear-physchem-v1.json`. Fold 2--3 train the model-selection
+candidates, fold 4 chooses regularization, folds 2--4 are refit, fold 1 calibrates,
+and fold 0 was initially evaluated once as a diagnostic. Its results then
+informed the manual release decision to disable the weak activity head and retain
+the limited HC50 head only in a safety blend. Fold 0 is therefore development
+evidence, not an untouched or unbiased final test. No predeclared numeric gate or
+same-fold APEX/HydrAMP/physchem comparison was completed, and no formal promotion
+claim is made. Exact metrics and caveats are in `MODEL_CARD.md`.
+
+The neural successor remains configured but unexecuted:
 
 `configs/oracle_train.json` pins `facebook/esm2_t12_35M_UR50D` at Git revision
 `6fbf070e65b0b7291e7bbcd451118c216cff79d8`. The backbone remains frozen; the
@@ -68,10 +86,8 @@ Training dependencies are isolated from the curation environment:
 uv sync --locked --extra train
 ```
 
-Installing that extra does not start training. There is intentionally no
-`amp train run` command in this handoff: execution begins only after the loss,
-metric logging, checkpoint, and resume behavior receive tests and an explicit
-training invocation is added.
+Installing that extra does not start neural training. The ESM2 interval-censored
+trainer, checkpoint, and resume path remain future work.
 
 ## Known limits before making model claims
 
@@ -92,5 +108,7 @@ training invocation is added.
   training labels to this handoff.
 
 The first scientifically defensible next step is a non-neural physicochemical
-baseline followed by the frozen-ESM2 small heads, evaluated on the fixed test
-clusters and calibrated only on the calibration clusters.
+baseline followed by the frozen-ESM2 small heads, evaluated on newly reserved
+clusters that do not influence release choices and calibrated only on the
+calibration clusters. Fold 0 cannot serve that final-test role for the current
+release because its diagnostics already informed head selection.

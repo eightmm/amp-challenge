@@ -7,7 +7,15 @@
     "max_length": 32
   },
   "oracle": {
-    "name": "physchem-v0",
+    "name": "physchem-activity+linear-safety-v1",
+    "physchem_weight": 0.5,
+    "learned_checkpoint": {
+      "path": "checkpoints/linear-physchem-v1.json",
+      "sha256": "efaa9236fc93e3b01ac02ffb8a8bceab06fcd351922fb2801ad2b23f6aca6f9a",
+      "weight": 1.0,
+      "use_activity": false,
+      "use_toxicity": true
+    },
     "activity_weight": 1.0,
     "toxicity_weight": 0.65,
     "uncertainty_weight": 0.25

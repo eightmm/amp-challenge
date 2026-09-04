@@ -3,11 +3,13 @@ from __future__ import annotations
 import csv
 import math
 import statistics
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Protocol
 
 from .physchem import PhyschemFeatures, describe
+from .utils import sha256_file
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -106,15 +108,82 @@ class CSVOracle:
     def predict(self, sequence: str) -> OraclePrediction | None:
         return self._predictions.get(sequence)
 
+    def require_coverage(self, sequences: Iterable[str]) -> None:
+        """Fail closed when a candidate has no prediction in this artifact."""
+        missing = sorted(set(sequences) - self._predictions.keys())
+        if missing:
+            examples = ", ".join(missing[:3])
+            raise ValueError(
+                f"{self.path}: missing predictions for {len(missing)} candidate sequence(s); "
+                f"examples: {examples}"
+            )
+
+
+class LearnedLinearOracle:
+    """Adapter for the self-contained JSON linear-oracle checkpoint."""
+
+    def __init__(
+        self,
+        path: Path,
+        *,
+        expected_sha256: str,
+        use_activity: bool = True,
+        use_toxicity: bool = True,
+    ) -> None:
+        if not use_activity and not use_toxicity:
+            raise ValueError("learned oracle must enable activity, toxicity, or both")
+        if len(expected_sha256) != 64 or any(
+            character not in "0123456789abcdef" for character in expected_sha256
+        ):
+            raise ValueError(
+                "learned checkpoint sha256 must be 64 lowercase hexadecimal characters"
+            )
+        actual_sha256 = sha256_file(path)
+        if actual_sha256 != expected_sha256:
+            raise ValueError(
+                f"learned checkpoint hash mismatch for {path}: {actual_sha256} != {expected_sha256}"
+            )
+
+        # Import lazily so the stable scoring contract does not create a cycle with
+        # the training/checkpoint implementation.
+        from .linear_oracle import LinearOracle
+
+        self.path = path
+        self.checkpoint_sha256 = actual_sha256
+        self._model = LinearOracle.from_checkpoint(path)
+        self.name = self._model.name
+        self.use_activity = use_activity
+        self.use_toxicity = use_toxicity
+
+    def predict(self, sequence: str) -> OraclePrediction:
+        activity, toxicity, activity_uncertainty, toxicity_uncertainty = (
+            self._model.predict_components(sequence)
+        )
+        enabled_uncertainties = []
+        if self.use_activity:
+            enabled_uncertainties.append(activity_uncertainty)
+        if self.use_toxicity:
+            enabled_uncertainties.append(toxicity_uncertainty)
+        return OraclePrediction(
+            activity=activity,
+            toxicity=toxicity,
+            uncertainty=max(enabled_uncertainties),
+            source=self.name,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class WeightedOracle:
     oracle: Oracle
     weight: float = 1.0
+    use_activity: bool = True
+    use_toxicity: bool = True
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.weight) or self.weight <= 0:
             raise ValueError("oracle weight must be finite and positive")
+        if not self.use_activity and not self.use_toxicity:
+            raise ValueError("oracle must contribute activity, toxicity, or both")
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +194,7 @@ class CandidateScore:
     uncertainty: float
     utility: float
     oracle_count: int
+    oracle_sources: tuple[str, ...]
     features: PhyschemFeatures
 
     def as_flat_dict(self) -> dict[str, str | int | float]:
@@ -135,6 +205,7 @@ class CandidateScore:
             "uncertainty": self.uncertainty,
             "utility": self.utility,
             "oracle_count": self.oracle_count,
+            "oracle_sources": "|".join(self.oracle_sources),
         }
         output.update(asdict(self.features))
         return output
@@ -160,26 +231,59 @@ class EnsembleScorer:
     def name(self) -> str:
         return "+".join(member.oracle.name for member in self.members)
 
+    @property
+    def sources(self) -> tuple[str, ...]:
+        return tuple(member.oracle.name for member in self.members)
+
     def score(self, sequence: str) -> CandidateScore:
-        predictions: list[tuple[OraclePrediction, float]] = []
+        predictions: list[tuple[OraclePrediction, WeightedOracle]] = []
         missing = 0
         for member in self.members:
             prediction = member.oracle.predict(sequence)
             if prediction is None:
                 missing += 1
                 continue
-            predictions.append((prediction, member.weight))
+            predictions.append((prediction, member))
         if not predictions:
             raise ValueError(f"no oracle produced a prediction for {sequence}")
 
-        total_weight = sum(weight for _, weight in predictions)
-        activity = sum(p.activity * weight for p, weight in predictions) / total_weight
-        toxicity = sum(p.toxicity * weight for p, weight in predictions) / total_weight
-        stated_uncertainty = sum(p.uncertainty * weight for p, weight in predictions) / total_weight
-        activity_values = [prediction.activity for prediction, _ in predictions]
-        disagreement = statistics.pstdev(activity_values) if len(activity_values) > 1 else 0.0
+        activity_predictions = [
+            (prediction, member.weight) for prediction, member in predictions if member.use_activity
+        ]
+        toxicity_predictions = [
+            (prediction, member.weight) for prediction, member in predictions if member.use_toxicity
+        ]
+        if not activity_predictions:
+            raise ValueError(f"no oracle produced an activity prediction for {sequence}")
+        if not toxicity_predictions:
+            raise ValueError(f"no oracle produced a toxicity prediction for {sequence}")
+
+        activity_total = sum(weight for _, weight in activity_predictions)
+        toxicity_total = sum(weight for _, weight in toxicity_predictions)
+        activity = (
+            sum(prediction.activity * weight for prediction, weight in activity_predictions)
+            / activity_total
+        )
+        toxicity = (
+            sum(prediction.toxicity * weight for prediction, weight in toxicity_predictions)
+            / toxicity_total
+        )
+        # Adding an oracle must never make a candidate look more certain merely
+        # because uncertainties were averaged. Keep the most conservative stated
+        # uncertainty and add disagreement for both biological heads.
+        stated_uncertainty = max(prediction.uncertainty for prediction, _ in predictions)
+        activity_values = [prediction.activity for prediction, _ in activity_predictions]
+        toxicity_values = [prediction.toxicity for prediction, _ in toxicity_predictions]
+        activity_disagreement = (
+            statistics.pstdev(activity_values) if len(activity_values) > 1 else 0.0
+        )
+        toxicity_disagreement = (
+            statistics.pstdev(toxicity_values) if len(toxicity_values) > 1 else 0.0
+        )
         uncertainty = _clamp(
-            stated_uncertainty + disagreement + missing * self.missing_member_penalty
+            stated_uncertainty
+            + max(activity_disagreement, toxicity_disagreement)
+            + missing * self.missing_member_penalty
         )
         features = describe(sequence)
         synthesis_penalty = _clamp(
@@ -200,5 +304,6 @@ class EnsembleScorer:
             uncertainty=uncertainty,
             utility=utility,
             oracle_count=len(predictions),
+            oracle_sources=tuple(prediction.source for prediction, _ in predictions),
             features=features,
         )

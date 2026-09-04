@@ -53,6 +53,36 @@ class FreezeTests(unittest.TestCase):
             )
             self.assertTrue(result.startswith("DRY RUN:"))
 
+    def test_frozen_run_rejects_mutated_release_input(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            reference = base / "reference.fasta"
+            config = base / "config.json"
+            write_fasta(["VNWKKILGKIIKVVK"], reference, prefix="ref")
+            config.write_bytes((project_root / "configs/default.json").read_bytes())
+            run_dir = base / "run"
+            run_pipeline(
+                project_root=project_root,
+                config_path=config,
+                output_dir=run_dir,
+                reference_path=reference,
+                n_sequences=100,
+                top_k=5,
+                seed=7,
+            )
+            record, _, _ = freeze_run(
+                run_dir=run_dir,
+                reference_path=reference,
+                submission_dir=base / "submission",
+                expected_library_size=100,
+                expected_top_size=5,
+            )
+            config.write_text(config.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "manifest input hash mismatch"):
+                verify_frozen_run(run_dir, record["run_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

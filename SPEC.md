@@ -1,6 +1,6 @@
 # AMP Challenge Pipeline Specification
 
-Status: **v0.2 training-data handoff**
+Status: **v0.3 executable baseline release**
 
 Last updated: 2026-09-03
 
@@ -82,7 +82,7 @@ Required modeling properties:
 - interval/censored likelihood for `<`, `<=`, `>`, and `>=` MIC records;
 - ordinal threshold outputs at 4, 16, and 64 uM;
 - fold ensemble trained on sequence-identity clusters;
-- post-hoc calibration measured only on held-out clusters.
+- post-hoc calibration measured only on disjoint calibration clusters.
 
 APEX is an external ensemble member, not ground truth. Generator optimization
 against a single oracle is prohibited because it invites reward hacking.
@@ -153,7 +153,8 @@ Required reports:
 - oracle disagreement and OOD-stratified metrics.
 
 Promotion requires improvement over APEX/HydrAMP/physchem baselines on the same
-leakage-free folds, not only random-split averages.
+leakage-free folds, not only random-split averages. The current release has not
+completed that comparison and therefore makes no formal promotion claim.
 
 ## 6. Run states and authority
 
@@ -207,14 +208,23 @@ matches its manifest, and no cluster crosses fold boundaries. This phase does no
 claim that training ran or that the current global-edit clustering is equivalent
 to MMseqs2 local alignment.
 
-### Phase 2b — oracle benchmark (next)
+### Phase 2b — oracle benchmark (in progress)
 
 - add independently licensed sources and source/temporal holdouts;
 - replace or corroborate the v1 clustering with pinned MMseqs2 runs;
 - APEX plus at least two independent learned oracle families;
 - calibration and OOD report.
 
-Acceptance: promotion gate passes on held-out clusters and Top-K enrichment.
+The dependency-free DRAMP physicochemical baseline has been executed. Its MIC
+activity head is disabled after manual review of weak development diagnostics,
+including Fold 0; because Fold 0 informed that release choice, its metrics are
+not an unbiased final performance estimate. The small HC50 head remains an
+explicitly limited safety-only ensemble member. Frozen ESM2, independent
+oracle-family benchmarks, and the same-fold APEX/HydrAMP/physchem comparison are
+still pending. No promotion gate has passed for this release.
+
+Future acceptance (not yet met): a predeclared promotion rule passes on newly
+reserved evaluation clusters and Top-K enrichment.
 
 ### Phase 3 — robust selector
 
@@ -251,7 +261,7 @@ A model/selector can become the default only when all answers are yes:
 
 - Is its training data manifest complete and redistributable as required?
 - Are sequence-family leaks excluded from evaluation?
-- Is uncertainty calibrated on held-out clusters?
+- Is uncertainty calibrated on disjoint calibration clusters?
 - Does it improve Top-K enrichment, not only mean loss?
 - Does it retain performance across Gram-negative/MDR slices?
 - Is full generation deterministic under the pinned environment?

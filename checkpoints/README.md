@@ -1,7 +1,8 @@
 # Checkpoints
 
-This directory is intentionally empty in the bootstrap commit. Learned-model
-checkpoints must be added through Git LFS and recorded in a model card containing:
+The small audited JSON baseline is committed directly as
+`linear-physchem-v1.json`. Larger learned-model checkpoints must be added through
+Git LFS and recorded in a model card containing:
 
 - immutable source/training run identifier;
 - SHA-256 digest;
@@ -10,4 +11,5 @@ checkpoints must be added through Git LFS and recorded in a model card containin
 - validation split and metrics;
 - license and redistribution status.
 
-The default `heuristic-v0` smoke baseline has no learned weights.
+See `MODEL_CARD.md` for the JSON checkpoint digest, split contract, metrics, and
+limitations. The heuristic generator itself has no learned weights.

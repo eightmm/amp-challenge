@@ -17,6 +17,7 @@ from .constants import (
 from .data_registry import fetch_source, source_status
 from .freeze import freeze_run
 from .kaggle import run_read_command
+from .linear_oracle import train_linear_oracle
 from .pipeline import run_pipeline
 from .submission import submit_kaggle
 from .training_data import prepare_training_data
@@ -192,6 +193,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     preflight_parser.add_argument("--config", default="configs/oracle_train.json")
     preflight_parser.add_argument("--report", type=Path)
+    linear_parser = train_subparsers.add_parser(
+        "linear", help="Train the deterministic physicochemical activity/safety baseline"
+    )
+    linear_parser.add_argument(
+        "--dataset-dir", type=Path, default=Path("data/processed/dramp-oracle-v1")
+    )
+    linear_parser.add_argument(
+        "--output", type=Path, default=Path("checkpoints/linear-physchem-v1.json")
+    )
+    linear_parser.add_argument("--seed", type=int, default=42)
+    linear_parser.add_argument("--ensemble-members", type=int, default=5)
+    linear_parser.add_argument("--execute", action="store_true")
 
     subparsers.add_parser("doctor", help="Check the local runtime")
     return parser
@@ -304,6 +317,59 @@ def main() -> None:
             )
             print(json.dumps(report, indent=2, sort_keys=True))
             code = 0 if report["ready"] else 1
+        elif args.command == "train" and args.train_command == "linear":
+            dataset_dir = _project_path(root, args.dataset_dir)
+            checkpoint_path = _project_path(root, args.output)
+            if not args.execute:
+                print(
+                    json.dumps(
+                        {
+                            "status": "dry_run",
+                            "dataset_dir": str(dataset_dir),
+                            "output": str(checkpoint_path),
+                            "seed": args.seed,
+                            "ensemble_members": args.ensemble_members,
+                            "execute_required": True,
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+                code = 0
+            else:
+                preflight = training_preflight(
+                    dataset_dir=dataset_dir,
+                    train_config_path=root / "configs/oracle_train.json",
+                    report_path=dataset_dir / "preflight.json",
+                )
+                if not preflight["ready"]:
+                    raise RuntimeError("training preflight is not ready")
+                payload = train_linear_oracle(
+                    mic_csv=dataset_dir / "mic_measurements.csv",
+                    hc50_csv=dataset_dir / "hc50_measurements.csv",
+                    checkpoint_path=checkpoint_path,
+                    seed=args.seed,
+                    ensemble_members=args.ensemble_members,
+                    dataset_manifest_path=dataset_dir / "manifest.json",
+                )
+                print(
+                    json.dumps(
+                        {
+                            "status": "trained",
+                            "checkpoint": str(checkpoint_path),
+                            "checkpoint_id": payload["checkpoint_id"],
+                            "metrics": {
+                                task: payload["training"]["reports"][task][
+                                    "diagnostic_calibrated_metrics"
+                                ]
+                                for task in ("activity", "safety")
+                            },
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+                code = 0
         else:
             parser.error("unsupported command")
     except (FileNotFoundError, KeyError, PermissionError, RuntimeError, ValueError) as error:

@@ -13,7 +13,12 @@ represented as part of the DRAMP-derived dataset.
 
 The planned frozen representation is facebook/esm2_t12_35M_UR50D, pinned at
 revision 6fbf070e65b0b7291e7bbcd451118c216cff79d8 under its MIT license. No model
-weights are redistributed and no model training has been performed here.
+weights are redistributed and no ESM2-based training has been performed here.
+
+The committed `linear-physchem-v1.json` checkpoint was trained locally from the
+pinned DRAMP-derived tables. It contains only fitted scalar coefficients,
+calibration parameters, metrics, and content hashes; it does not redistribute
+the source workbook.
 
 This project does not claim that its bootstrap heuristic generator is a
 competitive biological model. It exists to exercise the complete, deterministic
