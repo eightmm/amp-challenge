@@ -28,12 +28,14 @@
       verify zero cross-fold threshold violations.
 - [x] Pin the frozen ESM2-35M revision and pass the training preflight.
 - [ ] Add source/temporal holdouts and pinned MMseqs2 cluster evidence.
-- [ ] Train frozen-PLM small heads and non-neural baselines.
-- [ ] Calibrate fold ensembles and benchmark Top-K enrichment.
+- [x] Train a frozen-ESM2 MIC<=16 head and matched physchem-context baseline.
+- [x] Calibrate five rotating cluster-fold evaluations and benchmark Top-K enrichment.
+- [ ] Add interval/ordinal 4/16/64-uM heads and an independent-source holdout.
 
 ## Selection workstream
 
-- [ ] Add APEX, custom MIC, hemolysis, and OOD CSV adapters.
+- [x] Add custom MIC activity-only CSV and coarse-to-fine OOD-aware scoring adapters.
+- [ ] Add APEX and independent hemolysis adapters.
 - [ ] Tune only on nested validation folds.
 - [ ] Compare mean score, LCB, Pareto, and quota-constrained portfolios.
 - [ ] Stress test oracle disagreement and adversarial/reward-hacked candidates.

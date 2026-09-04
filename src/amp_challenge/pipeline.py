@@ -104,6 +104,7 @@ def run_pipeline(
     seed: int,
     candidate_fasta: Path | None = None,
     external_score_paths: list[Path] | None = None,
+    external_activity_score_paths: list[Path] | None = None,
 ) -> PipelineResult:
     config = load_config(config_path)
     references_raw = read_sequences(reference_path)
@@ -178,12 +179,17 @@ def run_pipeline(
             "use_toxicity": use_toxicity,
         }
 
-    external_oracles: list[CSVOracle] = []
+    external_oracles: list[tuple[CSVOracle, str]] = []
     for score_path in external_score_paths or []:
         external_oracle = CSVOracle(score_path.resolve())
         external_oracle.require_coverage(sequences)
-        external_oracles.append(external_oracle)
+        external_oracles.append((external_oracle, "activity_and_toxicity"))
         members.append(WeightedOracle(external_oracle))
+    for score_path in external_activity_score_paths or []:
+        external_oracle = CSVOracle(score_path.resolve())
+        external_oracle.require_coverage(sequences)
+        external_oracles.append((external_oracle, "activity_only"))
+        members.append(WeightedOracle(external_oracle, use_activity=True, use_toxicity=False))
     scorer = EnsembleScorer(
         members,
         activity_weight=float(oracle_config["activity_weight"]),
@@ -229,8 +235,8 @@ def run_pipeline(
             }
         )
     input_records.extend(
-        _input_record("external_scores", oracle.path, project_root=project_root)
-        for oracle in external_oracles
+        _input_record(f"external_scores:{role}", oracle.path, project_root=project_root)
+        for oracle, role in external_oracles
     )
 
     manifest = {
@@ -265,8 +271,9 @@ def run_pipeline(
             {
                 "path": _recorded_path(oracle.path, project_root=project_root),
                 "sha256": sha256_file(oracle.path),
+                "contribution": role,
             }
-            for oracle in external_oracles
+            for oracle, role in external_oracles
         ],
         "outputs": {
             "library.fasta": sha256_file(library_path),

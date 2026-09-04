@@ -11,8 +11,13 @@ robust Top-100 selector, with the generator kept replaceable.
 > disabled after review of weak cluster-split development diagnostics; because
 > Fold 0 informed that release decision, its metrics are not an untouched,
 > unbiased final test. The small HC50 safety head is used only as a conservative
-> blend with the transparent physicochemical baseline. No formal comparison
-> against APEX, HydrAMP, or a declared physchem promotion baseline has been run.
+> blend with the transparent physicochemical baseline. That submitted v1 release
+> did not complete a formal APEX, HydrAMP, or physchem promotion comparison.
+
+The development v2 path adds a frozen ESM2-35M, organism-aware MIC<=16 oracle.
+It passed its matched nested cluster-CV development gate and supports deterministic
+coarse-to-fine reranking without changing the submitted/default v1 entry. See
+[`MODEL_CARD_ESM2_V2.md`](MODEL_CARD_ESM2_V2.md) for metrics and limitations.
 
 ## Why this shape
 
@@ -53,6 +58,11 @@ uv run amp train preflight
 uv run amp train linear
 uv run amp train linear --execute
 
+# Frozen ESM2 activity benchmark (requires the train extra and pinned model files).
+uv sync --locked --extra train
+uv run amp train esm
+uv run amp train esm --execute
+
 # Fast end-to-end smoke test
 uv run generate_broad_spectrum --n-sequences 500 --top-k 20
 uv run amp validate \
@@ -65,8 +75,8 @@ uv run generate_broad_spectrum
 uv run amp validate --run-dir generate_broad_spectrum
 ```
 
-The data commands do not train a model. `amp train linear --execute` is the only
-baseline optimization command and writes the content-addressed JSON checkpoint.
+The data commands do not train a model. Both training paths require an explicit
+`--execute`; they write content-addressed JSON checkpoints and never submit.
 On the pinned 2026-09-03 DRAMP snapshot,
 they produce 5,012 bacterial MIC measurements and 130 HC50 measurements over 929
 unique eligible peptide sequences. Raw and derived data remain Git-ignored; their
@@ -96,6 +106,21 @@ the selector:
 ```bash
 uv run generate_broad_spectrum \
   --candidate-fasta artifacts/ampdiffusion_candidates.fasta
+```
+
+For the development ESM2 reranker, score a deterministic coarse subset and use the
+result as an activity-only ensemble member:
+
+```bash
+uv run amp train esm-score \
+  --candidate-fasta generate/library.fasta \
+  --prefilter-scores generate/scores.csv \
+  --execute
+
+uv run generate_broad_spectrum \
+  --candidate-fasta generate/library.fasta \
+  --external-activity-scores runs/esm2-candidate-scores.csv \
+  --output-dir generate_v2
 ```
 
 This is the first integration path for the official AMP-Diffusion and HydrAMP

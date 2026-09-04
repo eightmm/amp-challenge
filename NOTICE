@@ -11,9 +11,10 @@ commit 417a4441a1e6ef8b10d2352e1c059622d5259f3a under its MIT license. They are
 not redistributed by this repository, and APEX training observations are not
 represented as part of the DRAMP-derived dataset.
 
-The planned frozen representation is facebook/esm2_t12_35M_UR50D, pinned at
-revision 6fbf070e65b0b7291e7bbcd451118c216cff79d8 under its MIT license. No model
-weights are redistributed and no ESM2-based training has been performed here.
+The frozen representation is facebook/esm2_t12_35M_UR50D, pinned at revision
+6fbf070e65b0b7291e7bbcd451118c216cff79d8 under its MIT license. No backbone
+weights are redistributed. The committed `esm2-mic16-v2.json` contains only fitted
+logistic-ridge coefficients, scalers, calibration parameters, and provenance hashes.
 
 The committed `linear-physchem-v1.json` checkpoint was trained locally from the
 pinned DRAMP-derived tables. It contains only fitted scalar coefficients,

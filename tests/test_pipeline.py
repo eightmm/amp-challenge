@@ -94,6 +94,55 @@ class PipelineTests(unittest.TestCase):
                     external_score_paths=[predictions],
                 )
 
+    def test_external_activity_scores_do_not_contribute_toxicity(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            reference = base / "reference.fasta"
+            candidates = base / "candidates.fasta"
+            predictions = base / "activity.csv"
+            write_fasta(["VNWKKILGKIIKVVK"], reference, prefix="ref")
+            sequences = ["KLGAFRVMSTQK", "RVTKQLAIGMFS"]
+            write_fasta(sequences, candidates, prefix="candidate")
+            predictions.write_text(
+                "sequence,activity,toxicity,uncertainty\n"
+                "KLGAFRVMSTQK,0.8,0.99,0.1\n"
+                "RVTKQLAIGMFS,0.7,0.99,0.1\n",
+                encoding="utf-8",
+            )
+            config_value = json.loads(
+                (project_root / "configs/default.json").read_text(encoding="utf-8")
+            )
+            config_value["oracle"]["learned_checkpoint"] = None
+            config = base / "config.json"
+            config.write_text(json.dumps(config_value), encoding="utf-8")
+            run_dir = base / "run"
+            run_pipeline(
+                project_root=project_root,
+                config_path=config,
+                output_dir=run_dir,
+                reference_path=reference,
+                n_sequences=2,
+                top_k=1,
+                seed=42,
+                candidate_fasta=candidates,
+                external_activity_score_paths=[predictions],
+            )
+            with (run_dir / "scores.csv").open(newline="", encoding="utf-8") as handle:
+                rows = {row["sequence"]: row for row in csv.DictReader(handle)}
+            physchem = PhyschemOracle().predict("KLGAFRVMSTQK")
+            self.assertAlmostEqual(float(rows["KLGAFRVMSTQK"]["toxicity"]), physchem.toxicity)
+            self.assertAlmostEqual(
+                float(rows["KLGAFRVMSTQK"]["activity"]),
+                (0.5 * physchem.activity + 0.8) / 1.5,
+            )
+            manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["external_scores"][0]["contribution"], "activity_only")
+            self.assertIn(
+                "external_scores:activity_only",
+                [record["role"] for record in manifest["inputs"]],
+            )
+
     def test_configured_learned_checkpoint_is_hashed_loaded_and_reported(self) -> None:
         class FakeLinearOracle:
             name = "fake-linear-v1"

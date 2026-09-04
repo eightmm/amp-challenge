@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "description": "Species-level ESKAPE proxy panel for v2 development; not a claim of strain-level challenge coverage",
+  "organisms": [
+    {"name": "Acinetobacter baumannii", "gram": "negative"},
+    {"name": "Escherichia coli", "gram": "negative"},
+    {"name": "Klebsiella pneumoniae", "gram": "negative"},
+    {"name": "Pseudomonas aeruginosa", "gram": "negative"},
+    {"name": "Staphylococcus aureus", "gram": "positive"},
+    {"name": "Enterococcus faecalis", "gram": "positive"},
+    {"name": "Enterococcus faecium", "gram": "positive"}
+  ]
+}

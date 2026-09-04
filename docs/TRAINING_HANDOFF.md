@@ -1,6 +1,6 @@
 # Training handoff
 
-Status: **handoff verified; dependency-free baseline executed**
+Status: **handoff verified; dependency-free baseline and frozen-ESM2 MIC16 v2 executed**
 
 Snapshot date: 2026-09-03
 
@@ -55,7 +55,7 @@ The five-fold measurement counts are:
 | 3 | 863 | 32 | 163 | train |
 | 4 | 1,103 | 23 | 188 | train |
 
-## Executed baseline and planned neural successor
+## Executed baseline and frozen-ESM2 successor
 
 The first executable baseline is trained with:
 
@@ -73,12 +73,13 @@ evidence, not an untouched or unbiased final test. No predeclared numeric gate o
 same-fold APEX/HydrAMP/physchem comparison was completed, and no formal promotion
 claim is made. Exact metrics and caveats are in `MODEL_CARD.md`.
 
-The neural successor remains configured but unexecuted:
+The first frozen-ESM2 successor is now executed:
 
 `configs/oracle_train.json` pins `facebook/esm2_t12_35M_UR50D` at Git revision
 `6fbf070e65b0b7291e7bbcd451118c216cff79d8`. The backbone remains frozen; the
-planned heads are small MLPs for interval-censored log2-micromolar MIC and HC50,
-with organism embeddings for MIC and explicit terminal-state covariates.
+v2 uses masked-mean ESM2 embeddings plus physicochemical, organism, Gram, and
+terminal-state covariates in a calibrated logistic-ridge MIC<=16-uM ensemble.
+The planned interval-censored MIC and HC50 heads remain future work.
 
 Training dependencies are isolated from the curation environment:
 
@@ -86,8 +87,10 @@ Training dependencies are isolated from the curation environment:
 uv sync --locked --extra train
 ```
 
-Installing that extra does not start neural training. The ESM2 interval-censored
-trainer, checkpoint, and resume path remain future work.
+Installing that extra does not start training. `uv run amp train esm --execute`
+creates the content-addressed embedding cache, nested-CV report, and
+`checkpoints/esm2-mic16-v2.json`. Metrics and caveats are in
+`MODEL_CARD_ESM2_V2.md`.
 
 ## Known limits before making model claims
 
@@ -107,8 +110,7 @@ trainer, checkpoint, and resume path remain future work.
 - APEX is available as an external inference ensemble only; it contributed no
   training labels to this handoff.
 
-The first scientifically defensible next step is a non-neural physicochemical
-baseline followed by the frozen-ESM2 small heads, evaluated on newly reserved
-clusters that do not influence release choices and calibrated only on the
-calibration clusters. Fold 0 cannot serve that final-test role for the current
-release because its diagnostics already informed head selection.
+The next scientifically defensible step is an independent-source or newly reserved
+family/temporal holdout, followed by interval/ordinal MIC heads and APEX comparison.
+Fold 0 cannot serve as a final-test fold because its diagnostics already informed
+release decisions.

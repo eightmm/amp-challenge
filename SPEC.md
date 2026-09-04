@@ -1,8 +1,8 @@
 # AMP Challenge Pipeline Specification
 
-Status: **v0.3 executable baseline release**
+Status: **v0.4 executable baseline plus development ESM2 activity oracle**
 
-Last updated: 2026-09-03
+Last updated: 2026-09-04
 
 Owner: Jaemin Sim
 
@@ -219,12 +219,18 @@ The dependency-free DRAMP physicochemical baseline has been executed. Its MIC
 activity head is disabled after manual review of weak development diagnostics,
 including Fold 0; because Fold 0 informed that release choice, its metrics are
 not an unbiased final performance estimate. The small HC50 head remains an
-explicitly limited safety-only ensemble member. Frozen ESM2, independent
-oracle-family benchmarks, and the same-fold APEX/HydrAMP/physchem comparison are
-still pending. No promotion gate has passed for this release.
+explicitly limited safety-only ensemble member. Independent oracle-family benchmarks
+and the same-fold APEX/HydrAMP comparison are still pending. No promotion gate passed
+for the submitted v1 release.
 
-Future acceptance (not yet met): a predeclared promotion rule passes on newly
-reserved evaluation clusters and Top-K enrichment.
+The frozen ESM2 MIC<=16 development successor now passes a same-fold nested-CV gate
+against a matched physicochemical-context baseline and improves pooled Top-K
+enrichment. This is useful development evidence, not final promotion evidence:
+the source is still DRAMP-only, fold 0 is no longer untouched, and the 70% global-edit
+split is weaker than the intended 40% MMseqs2/source holdout.
+
+Future acceptance (not yet met): the gain survives an independently licensed source
+or newly reserved family/temporal evaluation and a same-fold APEX comparison.
 
 ### Phase 3 — robust selector
 

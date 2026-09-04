@@ -50,6 +50,13 @@ def _add_generation_arguments(parser: argparse.ArgumentParser) -> None:
         type=Path,
         help="Normalized oracle CSV; repeat to form an ensemble",
     )
+    parser.add_argument(
+        "--external-activity-scores",
+        action="append",
+        default=[],
+        type=Path,
+        help="Normalized CSV used for activity only; repeat to form an ensemble",
+    )
 
 
 def _run_generate(args: argparse.Namespace, *, default_output: str) -> int:
@@ -65,6 +72,7 @@ def _run_generate(args: argparse.Namespace, *, default_output: str) -> int:
         seed=args.seed,
         candidate_fasta=args.candidate_fasta,
         external_score_paths=args.external_scores,
+        external_activity_score_paths=args.external_activity_scores,
     )
     print(
         json.dumps(
@@ -205,6 +213,45 @@ def build_parser() -> argparse.ArgumentParser:
     linear_parser.add_argument("--seed", type=int, default=42)
     linear_parser.add_argument("--ensemble-members", type=int, default=5)
     linear_parser.add_argument("--execute", action="store_true")
+    esm_parser = train_subparsers.add_parser(
+        "esm", help="Extract frozen ESM2 embeddings and benchmark an organism-aware MIC head"
+    )
+    esm_parser.add_argument(
+        "--dataset-dir", type=Path, default=Path("data/processed/dramp-oracle-v1")
+    )
+    esm_parser.add_argument("--config", default="configs/oracle_train.json")
+    esm_parser.add_argument("--model-source", default="facebook/esm2_t12_35M_UR50D")
+    esm_parser.add_argument("--embeddings", type=Path, default=Path("runs/esm2-dramp-v1.npz"))
+    esm_parser.add_argument("--output", type=Path, default=Path("checkpoints/esm2-mic16-v2.json"))
+    esm_parser.add_argument("--report", type=Path, default=Path("runs/esm2-mic16-v2-report.json"))
+    esm_parser.add_argument("--batch-size", type=int, default=64)
+    esm_parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    esm_parser.add_argument("--seed", type=int, default=42)
+    esm_parser.add_argument("--execute", action="store_true")
+    esm_score_parser = train_subparsers.add_parser(
+        "esm-score", help="Coarse-to-fine ESM2 scoring for an existing candidate library"
+    )
+    esm_score_parser.add_argument("--candidate-fasta", type=Path, required=True)
+    esm_score_parser.add_argument("--prefilter-scores", type=Path, required=True)
+    esm_score_parser.add_argument(
+        "--checkpoint", type=Path, default=Path("checkpoints/esm2-mic16-v2.json")
+    )
+    esm_score_parser.add_argument("--model-source", default="facebook/esm2_t12_35M_UR50D")
+    esm_score_parser.add_argument(
+        "--panel", type=Path, default=Path("configs/challenge_panel_proxy.json")
+    )
+    esm_score_parser.add_argument(
+        "--embeddings", type=Path, default=Path("runs/esm2-candidate-prefilter.npz")
+    )
+    esm_score_parser.add_argument(
+        "--output", type=Path, default=Path("runs/esm2-candidate-scores.csv")
+    )
+    esm_score_parser.add_argument("--prefilter-k", type=int, default=5000)
+    esm_score_parser.add_argument("--exploration-k", type=int, default=1000)
+    esm_score_parser.add_argument("--batch-size", type=int, default=64)
+    esm_score_parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    esm_score_parser.add_argument("--seed", type=int, default=42)
+    esm_score_parser.add_argument("--execute", action="store_true")
 
     subparsers.add_parser("doctor", help="Check the local runtime")
     return parser
@@ -369,6 +416,129 @@ def main() -> None:
                         sort_keys=True,
                     )
                 )
+                code = 0
+        elif args.command == "train" and args.train_command == "esm":
+            dataset_dir = _project_path(root, args.dataset_dir)
+            config_path = _project_path(root, args.config)
+            embedding_path = _project_path(root, args.embeddings)
+            checkpoint_path = _project_path(root, args.output)
+            report_path = _project_path(root, args.report)
+            model_source_path = _project_path(root, args.model_source)
+            model_source = model_source_path if model_source_path.exists() else args.model_source
+            if not args.execute:
+                print(
+                    json.dumps(
+                        {
+                            "status": "dry_run",
+                            "dataset_dir": str(dataset_dir),
+                            "model_source": str(model_source),
+                            "embeddings": str(embedding_path),
+                            "checkpoint": str(checkpoint_path),
+                            "report": str(report_path),
+                            "execute_required": True,
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+                code = 0
+            else:
+                preflight = training_preflight(
+                    dataset_dir=dataset_dir,
+                    train_config_path=config_path,
+                    report_path=dataset_dir / "preflight.json",
+                )
+                if not preflight["ready"]:
+                    raise RuntimeError("training preflight is not ready")
+                from .esm_oracle import (
+                    extract_esm_embeddings,
+                    read_split_sequences,
+                    train_esm_mic16_oracle,
+                )
+
+                config = json.loads(config_path.read_text(encoding="utf-8"))
+                backbone = config["backbone"]
+                embedding_manifest = extract_esm_embeddings(
+                    sequences=read_split_sequences(dataset_dir / "sequence_splits.csv"),
+                    model_source=model_source,
+                    model_name=backbone["name"],
+                    revision=backbone["revision"],
+                    output_path=embedding_path,
+                    batch_size=args.batch_size,
+                    device=args.device,
+                )
+                checkpoint, report = train_esm_mic16_oracle(
+                    mic_csv=dataset_dir / "mic_measurements.csv",
+                    embeddings_path=embedding_path,
+                    checkpoint_path=checkpoint_path,
+                    report_path=report_path,
+                    dataset_manifest_path=dataset_dir / "manifest.json",
+                    oracle_config_path=config_path,
+                    seed=args.seed,
+                )
+                print(
+                    json.dumps(
+                        {
+                            "status": "trained",
+                            "checkpoint": str(checkpoint_path),
+                            "checkpoint_id": checkpoint["checkpoint_id"],
+                            "embedding_manifest": embedding_manifest,
+                            "candidate_minus_baseline": report["candidate_minus_baseline"],
+                            "development_gate": report["development_gate"],
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+                code = 0
+        elif args.command == "train" and args.train_command == "esm-score":
+            paths = {
+                key: _project_path(root, getattr(args, key))
+                for key in (
+                    "candidate_fasta",
+                    "prefilter_scores",
+                    "checkpoint",
+                    "panel",
+                    "embeddings",
+                    "output",
+                )
+            }
+            model_source_path = _project_path(root, args.model_source)
+            model_source = model_source_path if model_source_path.exists() else args.model_source
+            if not args.execute:
+                print(
+                    json.dumps(
+                        {
+                            "status": "dry_run",
+                            **{key: str(value) for key, value in paths.items()},
+                            "model_source": str(model_source),
+                            "prefilter_k": args.prefilter_k,
+                            "exploration_k": args.exploration_k,
+                            "execute_required": True,
+                        },
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+                code = 0
+            else:
+                from .esm_oracle import score_esm_mic16_candidates
+
+                score_report = score_esm_mic16_candidates(
+                    candidate_fasta=paths["candidate_fasta"],
+                    prefilter_scores_path=paths["prefilter_scores"],
+                    checkpoint_path=paths["checkpoint"],
+                    panel_path=paths["panel"],
+                    model_source=model_source,
+                    embeddings_path=paths["embeddings"],
+                    output_path=paths["output"],
+                    prefilter_k=args.prefilter_k,
+                    exploration_k=args.exploration_k,
+                    batch_size=args.batch_size,
+                    device=args.device,
+                    seed=args.seed,
+                )
+                print(json.dumps(score_report, indent=2, sort_keys=True))
                 code = 0
         else:
             parser.error("unsupported command")
